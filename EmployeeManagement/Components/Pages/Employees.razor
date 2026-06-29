@@ -1,0 +1,184 @@
+@page "/"
+@page "/employees"
+@rendermode InteractiveServer
+@inject EmployeeService EmployeeService
+
+<PageTitle>Employee Management</PageTitle>
+
+<div class="container">
+    <div class="header-container">
+        <h1>Employee Management</h1>
+        <button class="btn btn-primary primary-action-btn" @onclick="ShowAddForm">
+            <span class="icon">+</span> Add New Employee
+        </button>
+    </div>
+
+    @if (employees == null)
+    {
+        <div class="loading-state">
+            <div class="spinner"></div>
+            <p>Loading employees...</p>
+        </div>
+    }
+    else if (!employees.Any())
+    {
+        <div class="empty-state">
+            <p>No employees found. Add one to get started.</p>
+        </div>
+    }
+    else
+    {
+        <div class="table-container glass-panel">
+            <table class="table modern-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Name</th>
+                        <th>Age</th>
+                        <th>Position</th>
+                        <th>Salary</th>
+                        <th class="actions-col">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var emp in employees)
+                    {
+                        <tr>
+                            <td>@emp.Eid</td>
+                            <td>@emp.Name</td>
+                            <td>@emp.Age</td>
+                            <td>@emp.Position</td>
+                            <td>@emp.Salary.ToString("C")</td>
+                            <td class="actions-col">
+                                <button class="btn btn-icon btn-edit" @onclick="() => ShowEditForm(emp)">Edit</button>
+                                <button class="btn btn-icon btn-delete" @onclick="() => DeleteEmployee(emp.Eid)">Delete</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@if (isFormVisible)
+{
+    <div class="custom-modal-backdrop">
+        <div class="custom-modal-content glass-panel popup-anim">
+            <h2>@(isEditing ? "Edit Employee" : "Add Employee")</h2>
+            
+            <EditForm Model="currentEmployee" OnValidSubmit="SaveEmployee">
+                <DataAnnotationsValidator />
+                <ValidationSummary />
+
+                <div class="form-group">
+                    <label>Name</label>
+                    <InputText @bind-Value="currentEmployee.Name" class="form-control" />
+                </div>
+                <div class="form-group">
+                    <label>Age</label>
+                    <InputNumber @bind-Value="currentEmployee.Age" class="form-control" />
+                </div>
+                <div class="form-group">
+                    <label>Position</label>
+                    <InputText @bind-Value="currentEmployee.Position" class="form-control" />
+                </div>
+                <div class="form-group">
+                    <label>Salary</label>
+                    <InputNumber @bind-Value="currentEmployee.Salary" class="form-control" />
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-success">Save</button>
+                    <button type="button" class="btn btn-secondary" @onclick="HideForm">Cancel</button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+}
+
+@code {
+    private IEnumerable<Employee>? employees;
+    private Employee currentEmployee = new Employee();
+    private bool isFormVisible = false;
+    private bool isEditing = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadEmployees();
+    }
+
+    private async Task LoadEmployees()
+    {
+        try
+        {
+            employees = await EmployeeService.GetAllEmployeesAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading employees: {ex.Message}");
+            employees = new List<Employee>();
+        }
+    }
+
+    private void ShowAddForm()
+    {
+        currentEmployee = new Employee();
+        isEditing = false;
+        isFormVisible = true;
+    }
+
+    private void ShowEditForm(Employee employee)
+    {
+        currentEmployee = new Employee
+        {
+            Eid = employee.Eid,
+            Name = employee.Name,
+            Age = employee.Age,
+            Position = employee.Position,
+            Salary = employee.Salary
+        };
+        isEditing = true;
+        isFormVisible = true;
+    }
+
+    private void HideForm()
+    {
+        isFormVisible = false;
+    }
+
+    private async Task SaveEmployee()
+    {
+        try
+        {
+            if (isEditing)
+            {
+                await EmployeeService.UpdateEmployeeAsync(currentEmployee);
+            }
+            else
+            {
+                await EmployeeService.AddEmployeeAsync(currentEmployee);
+            }
+            
+            await LoadEmployees();
+            HideForm();
+        }
+        catch(Exception ex)
+        {
+            Console.WriteLine($"Error saving employee: {ex.Message}");
+        }
+    }
+
+    private async Task DeleteEmployee(int id)
+    {
+        try
+        {
+            await EmployeeService.DeleteEmployeeAsync(id);
+            await LoadEmployees();
+        }
+        catch(Exception ex)
+        {
+            Console.WriteLine($"Error deleting employee: {ex.Message}");
+        }
+    }
+}
